@@ -20,6 +20,8 @@ void answeredSend();   // Отправка data c получением иску�
 void sendAndRecv();
 void sendAndRecvInfinite();
 
+void sync();
+
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
@@ -40,6 +42,8 @@ int main(int argc, char *argv[])
     porter.tx_pack_id = 0;
     sendAndRecvInfinite();
     */
+
+   // sync();
 
     qDebug() << "\n*** Test end ***";
     return a.exec();
@@ -164,6 +168,45 @@ void sendAndRecvInfinite()
 
     uint8_t porter2_rx_buff[USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT];
     uint8_t porter2_rx_buff_length = 0;
+
+    porter_frame_t frame, frame2;
+    while(1) {
+        frame = porter_process(&porter, porter_rx_buff, porter_rx_buff_length, clock());
+        if (frame.length > 0) {
+            memset(porter_rx_buff, 0, USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT);
+            qDebug() << "Want send: " << QByteArray((char*)frame.data, frame.length).toHex('.');
+            memcpy(porter2_rx_buff, frame.data, frame.length);
+            porter2_rx_buff_length = frame.length;
+        }
+
+        frame2 = porter_process(&porter2, porter2_rx_buff, porter2_rx_buff_length, clock());
+        if (frame2.length > 0) {
+            memset(porter2_rx_buff, 0, USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT);
+            qDebug() << "Want send2: " << QByteArray((char*)frame2.data, frame2.length).toHex('.');
+            memcpy(porter_rx_buff, frame2.data, frame2.length);
+            porter_rx_buff_length = frame2.length;
+        }
+    }
+}
+
+void sync()
+{
+    qDebug() << "\n***sync case";
+    uint8_t porter_tx_buff[USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT];
+    uint8_t userData[] = { 0x56, 0x12, 0x34, 0x24, 0x95, 0x56, 0x37, 0x18 };
+    porter_send(&porter, porter_tx_buff, userData, USER_DATA_LENGTH);
+
+    qDebug() << "User data:            " << QByteArray((char*)userData, USER_DATA_LENGTH).toHex('.');
+    qDebug() << "Wrappered data: " << QByteArray((char*)porter_tx_buff, USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT).toHex('.') << "\n";
+
+    uint8_t porter_rx_buff[USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT];
+    uint8_t porter_rx_buff_length = 0;
+
+    uint8_t porter2_rx_buff[USER_DATA_LENGTH + PORTER_SERVICE_BYTES_COUNT];
+    uint8_t porter2_rx_buff_length = 0;
+
+    porter.tx_pack_id = 23;
+    porter2.rx_pack_id = 54;
 
     porter_frame_t frame, frame2;
     while(1) {
